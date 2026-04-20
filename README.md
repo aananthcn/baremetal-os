@@ -98,12 +98,27 @@ arm-none-eabi-size build/applications/led-control/led-control.elf
 
 ## Flash using Segger J-Link
 
-Connect the J-Link probe to the SWD header (SWDIO, SWDCLK, GND, 3.3 V) on the STM32F407VET6 board.
+> **Note:** The STM32F407VET6 board has a **20-pin JTAG connector** (ARM standard 20-pin, 2.54 mm pitch). Connect your J-Link probe using a 20-pin JTAG cable. If your probe supports both JTAG and SWD, prefer JTAG for full 4-wire debugging (TMS, TCK, TDI, TDO, NJTRST). The pinout is:
+>
+> | Pin | Signal  | Pin | Signal |
+> |-----|---------|-----|--------|
+> | 1   | VTref   | 2   | NC     |
+> | 3   | TRST    | 4   | GND    |
+> | 5   | TDI     | 6   | GND    |
+> | 7   | TMS     | 8   | GND    |
+> | 9   | TCK     | 10  | GND    |
+> | 11  | RTCK    | 12  | GND    |
+> | 13  | TDO     | 14  | GND    |
+> | 15  | RESET   | 16  | GND    |
+> | 17  | DBGRQ   | 18  | GND    |
+> | 19  | 5V      | 20  | GND    |
+
+Connect the J-Link probe to the 20-pin JTAG header on the STM32F407VET6 board.
 
 ### Command-line (JLinkExe)
 
 ```
-JLinkExe -device STM32F407VE -if SWD -speed 4000 -autoconnect 1
+JLinkExe -device STM32F407VE -if JTAG -speed 4000 -autoconnect 1
 J-Link> loadbin build/applications/led-control/led-control.bin 0x08000000
 J-Link> r
 J-Link> g
@@ -119,7 +134,7 @@ J-Link> loadfile build/applications/led-control/led-control.hex
 ### Ozone (Segger graphical debugger)
 
 1. File → New Project Wizard
-2. Target device: `STM32F407VE`, Interface: SWD
+2. Target device: `STM32F407VE`, Interface: JTAG
 3. Program file: `build/applications/led-control/led-control.elf`
 4. Click **Download & Reset Program**
 
@@ -133,7 +148,7 @@ Open two terminals:
 **Terminal 1 — start the GDB server:**
 
 ```bash
-JLinkGDBServer -device STM32F407VE -if SWD -speed 4000 -port 2331
+JLinkGDBServer -device STM32F407VE -if JTAG -speed 4000 -port 2331
 ```
 
 **Terminal 2 — connect GDB:**
@@ -154,13 +169,13 @@ Open the `.elf` file in Ozone (see Flash section above). Set breakpoints by clic
 
 ## Flash and Debug using Lauterbach TRACE32
 
-Connect the TRACE32 debug cable to the SWD/JTAG header.
+Connect the TRACE32 debug cable to the 20-pin JTAG header.
 
 **Flash script (`flash.cmm`):**
 
 ```
 SYStem.CPU STM32F407VE
-SYStem.CONFIG.DEBUGPORTTYPE SWD
+SYStem.CONFIG.DEBUGPORTTYPE JTAG
 SYStem.Up
 Data.LOAD.Elf "build/applications/led-control/led-control.elf"
 Go
@@ -173,13 +188,65 @@ Run from TRACE32 PowerView: `DO flash.cmm`
 
 ```
 SYStem.CPU STM32F407VE
-SYStem.CONFIG.DEBUGPORTTYPE SWD
+SYStem.CONFIG.DEBUGPORTTYPE JTAG
 SYStem.Up
 Data.LOAD.Elf "build/applications/led-control/led-control.elf" /NoClear
 Break.Set main
 Go
 ENDDO
 ```
+
+
+# Adding a New Board
+
+The build system is board-agnostic. The `BOARD` variable controls which folder under `boards/` is used, and `add_baremetal_app()` automatically picks up the right BSP and flags — **no changes to any application or driver CMakeLists.txt are needed**.
+
+## Steps
+
+**1.** Create the board folder with the required files:
+
+```
+boards/
+└── my-board/
+    ├── my-board.h          # Peripheral register structs and base addresses
+    ├── my-board.lds        # Linker script (MEMORY regions, section layout)
+    ├── board.c             # clock_init(), board_init(), systick_config()
+    ├── startup.c           # reset_handler: copy .data, zero .bss, call main()
+    ├── vectors.c           # Vector table in .isr_vector section
+    ├── vector_handlers.c   # Weak default handlers for all IRQs
+    └── CMakeLists.txt      # Must define board_my-board and bsp_my-board targets
+```
+
+**2.** In `boards/my-board/CMakeLists.txt`, define the two required targets:
+
+```cmake
+# INTERFACE target — carries compile flags, link flags, linker script, include paths
+add_library(board_my-board INTERFACE)
+target_compile_options(board_my-board INTERFACE -mthumb -mcpu=... -ffreestanding ...)
+target_link_options(board_my-board INTERFACE -T ${CMAKE_CURRENT_SOURCE_DIR}/my-board.lds ...)
+target_link_libraries(board_my-board INTERFACE gcc)
+target_include_directories(board_my-board INTERFACE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/boards)
+
+# OBJECT target — startup, vector table, board init (OBJECT prevents section stripping)
+add_library(bsp_my-board OBJECT startup.c vectors.c vector_handlers.c board.c)
+target_link_libraries(bsp_my-board PUBLIC board_my-board)
+```
+
+**3.** Register the new board name in the root `CMakeLists.txt`:
+
+```cmake
+set(BOARD stm32f407vet6 CACHE STRING "Target board")
+set_property(CACHE BOARD PROPERTY STRINGS stm32f407vet6 my-board)   # ← add here
+```
+
+**4.** Configure and build targeting the new board:
+
+```bash
+cmake -S . -B build-myboard -DBOARD=my-board -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-myboard
+```
+
+All applications under `applications/` build unchanged for the new board.
 
 
 # Adding a New Application
