@@ -20,7 +20,7 @@ target_compile_options(board_stm32f407vet6 INTERFACE
     -Os
     -ffunction-sections
     -fdata-sections
-    -nostdlib
+    -ffreestanding
 )
 
 target_link_options(board_stm32f407vet6 INTERFACE

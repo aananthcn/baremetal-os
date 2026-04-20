@@ -1,0 +1,40 @@
+# CMake build output
+build/
+out/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+Makefile
+
+# Compiled artifacts
+*.elf
+*.bin
+*.hex
+*.map
+*.a
+*.o
+*.obj
+
+# Dependency tracking
+*.d
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Segger J-Link files
+*.jlink
+JLinkLog.txt
+JLinkSettings.ini
+
+# Lauterbach TRACE32 files
+*.t32
+*.cmm~
+practice.log

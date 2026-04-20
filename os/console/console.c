@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Aananth C N
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "console.h"
 #include <drivers/uart/uart.h>
 #include <stdarg.h>
@@ -7,49 +23,55 @@
    printf
    ============================================================ */
 
-static void put_uint(unsigned n, unsigned base, int upper) {
+static int put_uint(unsigned n, unsigned base, int upper) {
     char buf[12];
     int i = 0;
     const char *digits = upper ? "0123456789ABCDEF"
                                 : "0123456789abcdef";
-    if (n == 0) { uart1_putchar('0'); return; }
+    if (n == 0) { uart1_putchar('0'); return 1; }
     while (n) { buf[i++] = digits[n % base]; n /= base; }
+    int len = i;
     while (i > 0) uart1_putchar(buf[--i]);
+    return len;
 }
 
-static void put_int(int n) {
-    if (n < 0) { uart1_putchar('-'); n = -n; }
-    put_uint((unsigned)n, 10, 0);
+static int put_int(int n) {
+    int len = 0;
+    if (n < 0) { uart1_putchar('-'); n = -n; len = 1; }
+    return len + put_uint((unsigned)n, 10, 0);
 }
 
-void printf(const char *fmt, ...) {
+int printf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+    int n = 0;
 
     for (; *fmt; fmt++) {
         if (*fmt != '%') {
             uart1_putchar(*fmt);
+            n++;
             continue;
         }
 
         fmt++;
         switch (*fmt) {
-        case 'd': case 'i': put_int(va_arg(ap, int));              break;
-        case 'u':           put_uint(va_arg(ap, unsigned), 10, 0); break;
-        case 'x':           put_uint(va_arg(ap, unsigned), 16, 0); break;
-        case 'X':           put_uint(va_arg(ap, unsigned), 16, 1); break;
+        case 'd': case 'i': n += put_int(va_arg(ap, int));              break;
+        case 'u':           n += put_uint(va_arg(ap, unsigned), 10, 0); break;
+        case 'x':           n += put_uint(va_arg(ap, unsigned), 16, 0); break;
+        case 'X':           n += put_uint(va_arg(ap, unsigned), 16, 1); break;
         case 's': {
             const char *s = va_arg(ap, const char *);
-            while (*s) uart1_putchar(*s++);
+            while (*s) { uart1_putchar(*s++); n++; }
             break;
         }
-        case 'c': uart1_putchar((char)va_arg(ap, int)); break;
-        case '%': uart1_putchar('%');                    break;
-        default:  uart1_putchar('%'); uart1_putchar(*fmt); break;
+        case 'c': uart1_putchar((char)va_arg(ap, int)); n++; break;
+        case '%': uart1_putchar('%');                    n++; break;
+        default:  uart1_putchar('%'); uart1_putchar(*fmt); n += 2; break;
         }
     }
 
     va_end(ap);
+    return n;
 }
 
 
@@ -129,9 +151,10 @@ static int parse_hex(const char *s, unsigned *out) {
     return 1;
 }
 
-void scanf(const char *fmt, ...) {
+int scanf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
+    int matched = 0;
 
     for (; *fmt; fmt++) {
         if (*fmt != '%') continue;
@@ -144,32 +167,40 @@ void scanf(const char *fmt, ...) {
             read_token(tok, sizeof(tok));
             int neg = (tok[0] == '-');
             unsigned val = 0;
-            parse_dec(neg ? tok + 1 : tok, &val);
-            *va_arg(ap, int *) = neg ? -(int)val : (int)val;
+            if (parse_dec(neg ? tok + 1 : tok, &val)) {
+                *va_arg(ap, int *) = neg ? -(int)val : (int)val;
+                matched++;
+            }
             break;
         }
         case 'u': {
             read_token(tok, sizeof(tok));
             unsigned val = 0;
-            parse_dec(tok, &val);
-            *va_arg(ap, unsigned *) = val;
+            if (parse_dec(tok, &val)) {
+                *va_arg(ap, unsigned *) = val;
+                matched++;
+            }
             break;
         }
         case 'x': case 'X': {
             read_token(tok, sizeof(tok));
             unsigned val = 0;
-            parse_hex(tok, &val);
-            *va_arg(ap, unsigned *) = val;
+            if (parse_hex(tok, &val)) {
+                *va_arg(ap, unsigned *) = val;
+                matched++;
+            }
             break;
         }
         case 's':
-            read_token(va_arg(ap, char *), 32);
+            if (read_token(va_arg(ap, char *), 32) > 0)
+                matched++;
             break;
         case 'c': {
             char c;
             do { c = uart1_getchar(); } while (is_space(c));
             uart1_putchar(c);
             *va_arg(ap, char *) = c;
+            matched++;
             break;
         }
         default: break;
@@ -177,4 +208,5 @@ void scanf(const char *fmt, ...) {
     }
 
     va_end(ap);
+    return matched;
 }

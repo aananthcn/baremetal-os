@@ -39,13 +39,13 @@ SECTIONS {
     } > FLASH
 
     /* ---- Initialised data: loaded from Flash, copied to SRAM at startup ---- */
-    _init_data_rom = LOADADDR(.data);
-
-    .data : AT (LOADADDR(.data)) {
+    .data : {
         _data_start = .;
         *(.data .data.*)
         _data_end = .;
     } > SRAM AT > FLASH
+
+    _init_data_rom = LOADADDR(.data);
 
     /* ---- Zero-initialised data ---- */
     .bss (NOLOAD) : {
