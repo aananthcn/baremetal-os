@@ -1,6 +1,6 @@
 # Bare Metal OS — BMOS
 
-An tiny RTOS written by a father, to teach his son, on tiny Embedded System development after knowing that his Proptham too is in the line of Embedded Systems development. I wish he learns from here and grow up, developing advanced systems and concepts that helps humanity to live peacefully and start seeking who they are actually!
+An tiny RTOS written to teach young kids (budding Engineers) on how to build tiny Embedded Systems from scratch.
 
 
 # Repository Structure
