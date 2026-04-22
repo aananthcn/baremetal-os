@@ -15,13 +15,16 @@
  */
 
 #include <drivers/gpio/gpio.h>
+#include <os/console/console.h>
 
 int main()
 {
+    printf("Starting LED Control!\n");
     gpio_enable_clock(GPIOA);
     gpio_set_output(GPIOA, 6);
     gpio_set_output(GPIOA, 7);
 
+    printf("Initialization complete! Entering loop!\n");
     while (1)
     {
         gpio_write(GPIOA, 6, 1);
