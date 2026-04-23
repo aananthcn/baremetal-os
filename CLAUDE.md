@@ -14,13 +14,19 @@ baremetal-os/
 ├── boards/
 │   └── stm32f407vet6/
 │       ├── stm32f407vet6.h    # Peripheral register structs and base addresses
-│       ├── stm32f407vet6.lds  # Linker script (Flash at 0x0, RAM at 0x20000000)
-│       └── stm32f407vet6.mk   # Compiler/linker flags for arm-none-eabi-gcc
+│       ├── stm32f407vet6.lds  # Linker script (Flash at 0x08000000, RAM at 0x20000000)
+│       ├── CMakeLists.txt     # board_stm32f407vet6 and bsp_stm32f407vet6 targets
+│       ├── board.c            # clock_init(), jtag_init(), usart1_pin_init()
+│       ├── startup.c          # reset_handler: copy .data, zero .bss, call main()
+│       ├── vectors.c          # Cortex-M4 vector table (.isr_vector section)
+│       └── vector_handlers.c  # Weak default handlers for all IRQs
 ├── drivers/
 │   ├── gpio/              # gpio.h / gpio.c — clock enable, pin mode, write
-│   └── i2c/               # i2c.h (stub)
+│   ├── i2c/               # i2c.h / i2c.c — master and slave polling API
+│   └── uart/              # uart.h / uart.c — USART1 init, putchar, getchar
 └── os/
-    └── kernel/            # kernel.c — kernel_init() and kernel_start() stubs
+    ├── console/           # console.h / console.c — printf() and scanf() over UART
+    └── kernel/            # kernel.h / kernel.c — kernel_init() / kernel_start() stubs
 ```
 
 ## Architecture Rules
@@ -72,4 +78,4 @@ The codebase is **intentionally incomplete** — it is a learning scaffold:
 - `kernel_init()` and `kernel_start()` are stubs; scheduler not yet implemented.
 - GPIO driver is functional (clock enable, output mode, BSRR write).
 - I2C driver header exists; implementation is missing.
-- No startup `.s` file or `vector_handlers.c` visible yet in the new layout — these are referenced in `stm32f407vet6.mk` and need to be added under `boards/stm32f407vet6/`.
+- `startup.c` and `vector_handlers.c` are present under `boards/stm32f407vet6/`.

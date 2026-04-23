@@ -1,13 +1,17 @@
-# Helper: add_baremetal_app(name SOURCES ... DRIVERS ...)
+# Helper: add_baremetal_app(name SOURCES ... DRIVERS ... FEATURES ...)
 #
 # Creates a standalone ELF for a single application.
 # No two apps are ever linked together.
+# DRIVERS  — hardware driver libraries (e.g. driver_gpio, driver_uart)
+# FEATURES — OS-level libraries that are not drivers (e.g. console)
 # Post-build: generates .bin for J-Link/Lauterbach flashing and prints size.
 
 function(add_baremetal_app APP_NAME)
-    cmake_parse_arguments(ARG "" "" "SOURCES;DRIVERS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "SOURCES;DRIVERS;FEATURES" ${ARGN})
 
     add_executable(${APP_NAME} ${ARG_SOURCES})
+
+    set_target_properties(${APP_NAME} PROPERTIES SUFFIX .elf)
 
     target_include_directories(${APP_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}
@@ -18,6 +22,7 @@ function(add_baremetal_app APP_NAME)
         bsp_${BOARD}
         board_${BOARD}
         ${ARG_DRIVERS}
+        ${ARG_FEATURES}
     )
 
     # Flat binary for flash download
